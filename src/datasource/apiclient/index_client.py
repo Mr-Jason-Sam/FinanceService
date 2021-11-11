@@ -30,7 +30,7 @@ class IndexClient(BaseClient):
     """
 
     def fetchSwIndustryInfo(self, level: str = '3'):
-        url = self.address + '/portfolio/querySwIndustryInfo'
+        url = self.address + '/index/querySwIndustryInfo'
 
         body = \
             {
@@ -41,7 +41,7 @@ class IndexClient(BaseClient):
 
         origin_df = pd.DataFrame(data=js['body']['swIndustryInfoList'])
 
-        if origin_df is None:
+        if origin_df is None or origin_df.empty:
             return origin_df
 
         origin_df.rename(
@@ -51,6 +51,9 @@ class IndexClient(BaseClient):
             },
             inplace=True
         )
+
+        # 由于数据库的申万代码都是没有“.SI”，而其他表使用时带有“.SI”，这里给加上
+        origin_df[SwConstants.code] = origin_df[SwConstants.code].map(lambda x: str(x) + str(".SI"))
 
         return origin_df
 
@@ -74,7 +77,7 @@ class IndexClient(BaseClient):
 
         origin_df = pd.DataFrame(data=js['body']['indexDataList'])
 
-        if origin_df is None:
+        if origin_df is None or origin_df.empty:
             return origin_df
 
         origin_df.rename(
@@ -86,7 +89,7 @@ class IndexClient(BaseClient):
             inplace=True
         )
 
-        origin_df[AssetsConstants.assets] = origin_df[AssetsConstants.assets].map(lambda x: float(x))
+        origin_df[AShareIndexConstants.assets] = origin_df[AShareIndexConstants.assets].map(lambda x: float(x))
 
         return origin_df
 
@@ -111,7 +114,7 @@ class IndexClient(BaseClient):
 
         origin_df = pd.DataFrame(data=js['body']['indexDataList'])
 
-        if origin_df is None:
+        if origin_df is None or origin_df.empty:
             return origin_df
 
         origin_df.rename(
@@ -148,7 +151,7 @@ class IndexClient(BaseClient):
 
         origin_df = pd.DataFrame(data=js['body']['indexDataList'])
 
-        if origin_df is None:
+        if origin_df is None or origin_df.empty:
             return origin_df
 
         origin_df.rename(

@@ -27,6 +27,11 @@ class PortfolioClient(BaseClient):
     def fetchPortfolioAssetsInfo(self, v_code: str, v_begin_date: str, v_end_date: str):
         url = self.address + '/portfolio/queryPortfolioInfo'
 
+        if v_begin_date is None:
+            v_begin_date = '0'
+        if v_end_date is None:
+            v_end_date = '99999999'
+
         body = \
             {
                 "code": v_code,
@@ -38,7 +43,7 @@ class PortfolioClient(BaseClient):
 
         origin_df = pd.DataFrame(data=js['body']['portfolioInfoList'])
 
-        if origin_df is None:
+        if origin_df is None or origin_df.empty:
             return origin_df
 
         origin_df.rename(
@@ -64,6 +69,9 @@ class PortfolioClient(BaseClient):
     def fetchPortfolioPositionInfo(self, v_code: str, v_end_date: str):
         url = self.address + '/portfolio/queryPortfolioHistoryPositionInfo'
 
+        if v_end_date is None:
+            v_end_date = '99999999'
+
         body = \
             {
                 "code": v_code,
@@ -74,7 +82,7 @@ class PortfolioClient(BaseClient):
 
         origin_df = pd.DataFrame(data=js['body']['positionInfoList'])
 
-        if origin_df is None:
+        if origin_df is None or origin_df.empty:
             return origin_df
 
         origin_df.rename(

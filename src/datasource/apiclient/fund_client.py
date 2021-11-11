@@ -26,6 +26,9 @@ class FundClient(BaseClient):
     def fetch_fund_nav(self, v_code_list: [], v_end_date: str):
         url = self.address + '/fund/queryFundAdjNav'
 
+        if v_end_date is None:
+            v_end_date = '99999999'
+
         body = \
             {
                 "fundCodes": v_code_list,
@@ -36,7 +39,7 @@ class FundClient(BaseClient):
 
         origin_df = pd.DataFrame(data=js['body'])
 
-        if origin_df is None:
+        if origin_df is None or origin_df.empty:
             return origin_df
 
         origin_df.rename(
@@ -47,10 +50,6 @@ class FundClient(BaseClient):
             },
             inplace=True
         )
-
-        print(v_code_list)
-        print(v_end_date)
-        print(origin_df)
 
         origin_df[FundConstants.adj_nav] = origin_df[FundConstants.adj_nav].map(lambda x: float(x))
 
@@ -65,6 +64,11 @@ class FundClient(BaseClient):
     def fetch_fund_range_nav(self, v_fund_code_list: [], v_begin_date: str, v_end_date: str):
         url = self.address + '/fund/queryHistoryFundAdjNav'
 
+        if v_begin_date is None:
+            v_begin_date = '0'
+        if v_end_date is None:
+            v_end_date = '99999999'
+
         body = \
             {
                 "fundCodes": v_fund_code_list,
@@ -74,9 +78,12 @@ class FundClient(BaseClient):
 
         js = requests_tools.fetch_net_data_with_body_to_js(url=url, body=json.dumps(body))
 
+        if len(js['body']) == 0:
+            print(js)
+
         origin_df = pd.DataFrame(data=js['body'][0])
 
-        if origin_df is None:
+        if origin_df is None or origin_df.empty:
             return origin_df
 
         origin_df.rename(

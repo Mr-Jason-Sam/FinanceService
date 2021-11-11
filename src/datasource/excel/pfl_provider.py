@@ -218,7 +218,7 @@ class PflExcelProvider:
                 next_date = adj_date_array[now_index + 1]
 
             adj_df = pd.DataFrame(data=groups)
-            fund_code_list = np.array(adj_df[PortfolioConstants.pfl_fund_code])
+            fund_code_list = list(adj_df[PortfolioConstants.pfl_fund_code])
 
             nav_df = self.__fund_client.fetch_fund_range_nav(v_fund_code_list=fund_code_list,
                                                              v_begin_date=now_date,

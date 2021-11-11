@@ -17,6 +17,7 @@ from matplotlib import ticker
 
 from constants import time_constants
 from constants.enum.index_enum import IndexEnum
+from constants.object.index_wind_code_constants import IndexWindCodeConstants
 from datasource.apiclient.fund_client import FundClient
 from datasource.apiclient.index_client import IndexClient
 from datasource.apiclient.portfolio_client import PortfolioClient
@@ -214,6 +215,10 @@ class Newspaper(object):
         # 组装周观点
         self.__evaluate = self.__assemble_evaluate(self.__comb_dto)
 
+        # 输出周观点
+        with open(io_constants.newspaper_output_path + self.__comb_info.name + '周观点' + io_constants.TXT, "w") as f:
+            f.write(self.__evaluate)
+
     """
     :@deprecated: 获取资产指标数据
     :@param: 
@@ -288,9 +293,11 @@ class Newspaper(object):
         else:
             his_position_df = self.__portfolio_client.fetchPortfolioPositionInfo(v_code=self.__comb_info.code,
                                                                                  v_end_date=self.__comb_dto.end_date)
+            # 删除持仓为0%的基金
+            his_position_df = his_position_df[~his_position_df[PortfolioConstants.pfl_position].isin([0])]
             position_df = his_position_df[his_position_df[PortfolioConstants.pfl_fund_adj_time] == his_position_df[
                 PortfolioConstants.pfl_fund_adj_time].max()]
-        position_df[PortfolioConstants.pfl_fund_name] = position_df[PortfolioConstants.pfl_fund_name].apply(
+        position_df[PortfolioConstants.pfl_fund_name] = position_df[PortfolioConstants.pfl_fund_name].map(
             lambda x: x[:-1] if x[-1] in ['A', 'C'] else x)
         # 输出历史调仓
         his_position_df.to_excel(
@@ -340,21 +347,20 @@ class Newspaper(object):
 
         return_df = pd.DataFrame()
         for code in self.__position_df[PortfolioConstants.pfl_fund_code]:
-            code = code + '.OF'
-            begin_nav_df = self.__fund_client.fetch_fund_nav(v_code_list=[code], v_end_date=begin_date)
-            end_nav_df = self.__fund_client.fetch_fund_nav(v_code_list=[code], v_end_date=v_end_date)
+            wind_code = code + '.OF'
+            begin_nav_df = self.__fund_client.fetch_fund_nav(v_code_list=[wind_code], v_end_date=begin_date)
             if begin_nav_df is None or begin_nav_df.empty:
                 continue
+            end_nav_df = self.__fund_client.fetch_fund_nav(v_code_list=[wind_code], v_end_date=v_end_date)
             if end_nav_df is None or end_nav_df.empty:
                 continue
             week_return = end_nav_df[FundConstants.adj_nav][0] / begin_nav_df[FundConstants.adj_nav][0] - 1
-            return_df = return_df.append(pd.DataFrame(data={
+            return_df = return_df.append(pd.DataFrame(data=[{
                 FundConstants.date: v_end_date,
-                FundConstants.fund_windcode: code,
+                FundConstants.fund_windcode: wind_code,
+                FundConstants.fund_code: code,
                 FundConstants.week_return: week_return
-            }))
-
-        return_df[FundConstants.fund_code] = return_df[FundConstants.fund_windcode].map(lambda x: x[:-3])
+            }]))
 
         return_df.rename(columns={FundConstants.fund_code: PortfolioConstants.pfl_fund_code}, inplace=True)
 
@@ -368,7 +374,7 @@ class Newspaper(object):
         return_df.reset_index(inplace=True)
 
         # 保留两位小数，添加百分号
-        return_df[FundConstants.week_return] = return_df[FundConstants.week_return].map(lambda x: '%.2f%%' % x)
+        return_df[FundConstants.week_return] = return_df[FundConstants.week_return].map(lambda x: '%.2f%%' % (x * 100))
 
         portfolio_evaluate = portfolio_constants.PFL_EXAMPLE.format(name=v_comb_name,
                                                                     range_return=range_return,
@@ -760,10 +766,10 @@ comb_dto_XINGFU = CombDto()
 
 evaluate = '国内权益市场需关注能源紧缺对经济的综合影响，债市需关注财政偏紧局面是否会出现改变，若出现宽信用转向，将对债市有一定冲击。'
 # TODO 自动获取最新
-# end_date = '20210930'
-today = time_tools.now_yymmdd()
-end_date = time_tools.find_trade_date(today, -1)
-print(end_date)
+end_date = '20211105'
+# today = time_tools.now_yymmdd()
+# end_date = time_tools.find_trade_date(today, -1)
+# print(end_date)
 
 # 来福
 comb_dto_LAIFU.code = 'ZH032924'
@@ -775,69 +781,69 @@ comb_dto_LAIFU.bench_bond_position = 1 - comb_dto_LAIFU.bench_equity_position
 comb_dto_LAIFU.evaluate = evaluate
 newspaper_factory(comb_dto_LAIFU)
 
-# # 固收加强
-# comb_dto_FIX_INCOME.code = 'ZH032924'
-# comb_dto_FIX_INCOME.dict_id = 'ZH032924_TMP'
-# comb_dto_FIX_INCOME.begin_date = '20200316'
-# comb_dto_FIX_INCOME.end_date = end_date
-# comb_dto_FIX_INCOME.bench_equity_position = 0.1
-# comb_dto_FIX_INCOME.bench_bond_position = 1 - comb_dto_FIX_INCOME.bench_equity_position
-# comb_dto_FIX_INCOME.template = 'template_tmp.png'
-# comb_dto_FIX_INCOME.roll_trade_day = TradeDatePeriodConstants.HALF_YEAR
-# comb_dto_FIX_INCOME.evaluate = evaluate
-# comb_dto_FIX_INCOME.display_return_module = False
-# comb_dto_FIX_INCOME.display_evaluate = False
-# newspaper_factory(comb_dto_FIX_INCOME)
-#
-# # 来福Plus
-# comb_dto_LAIFU_PLUS.code = 'ZH045084'
-# comb_dto_LAIFU_PLUS.dict_id = comb_dto_LAIFU_PLUS.code
-# comb_dto_LAIFU_PLUS.begin_date = '20200617'
-# comb_dto_LAIFU_PLUS.end_date = end_date
-# comb_dto_LAIFU_PLUS.bench_equity_position = 0.2
-# comb_dto_LAIFU_PLUS.bench_bond_position = 1 - comb_dto_LAIFU_PLUS.bench_equity_position
-# comb_dto_LAIFU_PLUS.evaluate = evaluate
-# newspaper_factory(comb_dto_LAIFU_PLUS)
-#
-# # 为你创金
-# comb_dto_CREATE_MONEY.code = 'ZH037782'
-# comb_dto_CREATE_MONEY.dict_id = comb_dto_CREATE_MONEY.code
-# comb_dto_CREATE_MONEY.begin_date = '20190923'
-# comb_dto_CREATE_MONEY.end_date = end_date
-# comb_dto_CREATE_MONEY.stk_bench_mark_code = IndexWindCodeConstants.csi_800
-# comb_dto_CREATE_MONEY.bench_equity_position = 1
-# comb_dto_CREATE_MONEY.bench_bond_position = 1 - comb_dto_CREATE_MONEY.bench_equity_position
-# comb_dto_CREATE_MONEY.evaluate = evaluate
-# newspaper_factory(comb_dto_CREATE_MONEY)
-#
-# #  小确幸
-# comb_dto_XIAOQUEXING.code = 'simulation'
-# comb_dto_XIAOQUEXING.dict_id = comb_dto_XIAOQUEXING.code
-# comb_dto_XIAOQUEXING.begin_date = '20190101'
-# comb_dto_XIAOQUEXING.end_date = end_date
-# comb_dto_XIAOQUEXING.excel_db = {comb_dto_XIAOQUEXING.USE_EXCEL: True,
-#                                  comb_dto_XIAOQUEXING.EXCEL_PATH: io_constants.newspaper_input_path + '创金小确幸调仓.xlsx',
-#                                  comb_dto_XIAOQUEXING.INDEX_CODE: IndexWindCodeConstants.ccy_11025,
-#                                  comb_dto_XIAOQUEXING.BOND_INDEX_CODE: IndexWindCodeConstants.csi_11015}
-# comb_dto_XIAOQUEXING.evaluate = evaluate
-# newspaper_factory(comb_dto_XIAOQUEXING)
-#
-# # 旺财
-# comb_dto_WANGCAI.code = 'ZH058937'
-# comb_dto_WANGCAI.dict_id = comb_dto_WANGCAI.code
-# comb_dto_WANGCAI.begin_date = '20210105'
-# comb_dto_WANGCAI.end_date = end_date
-# comb_dto_WANGCAI.bench_equity_position = 0.6
-# comb_dto_WANGCAI.bench_bond_position = 1 - comb_dto_WANGCAI.bench_equity_position
-# comb_dto_WANGCAI.evaluate = evaluate
-# newspaper_factory(comb_dto_WANGCAI)
-#
-# # 稳稳的幸福
-# comb_dto_XINGFU.code = 'ZH013136'
-# comb_dto_XINGFU.dict_id = comb_dto_XINGFU.code
-# comb_dto_XINGFU.begin_date = '20200316'
-# comb_dto_XINGFU.end_date = end_date
-# comb_dto_XINGFU.bench_equity_position = 0.1
-# comb_dto_XINGFU.bench_bond_position = 1 - comb_dto_XINGFU.bench_equity_position
-# comb_dto_XINGFU.evaluate = evaluate
-# newspaper_factory(comb_dto_XINGFU)
+# 固收加强
+comb_dto_FIX_INCOME.code = 'ZH032924'
+comb_dto_FIX_INCOME.dict_id = 'ZH032924_TMP'
+comb_dto_FIX_INCOME.begin_date = '20200316'
+comb_dto_FIX_INCOME.end_date = end_date
+comb_dto_FIX_INCOME.bench_equity_position = 0.1
+comb_dto_FIX_INCOME.bench_bond_position = 1 - comb_dto_FIX_INCOME.bench_equity_position
+comb_dto_FIX_INCOME.template = 'template_tmp.png'
+comb_dto_FIX_INCOME.roll_trade_day = TradeDatePeriodConstants.HALF_YEAR
+comb_dto_FIX_INCOME.evaluate = evaluate
+comb_dto_FIX_INCOME.display_return_module = False
+comb_dto_FIX_INCOME.display_evaluate = False
+newspaper_factory(comb_dto_FIX_INCOME)
+
+# 来福Plus
+comb_dto_LAIFU_PLUS.code = 'ZH045084'
+comb_dto_LAIFU_PLUS.dict_id = comb_dto_LAIFU_PLUS.code
+comb_dto_LAIFU_PLUS.begin_date = '20200617'
+comb_dto_LAIFU_PLUS.end_date = end_date
+comb_dto_LAIFU_PLUS.bench_equity_position = 0.2
+comb_dto_LAIFU_PLUS.bench_bond_position = 1 - comb_dto_LAIFU_PLUS.bench_equity_position
+comb_dto_LAIFU_PLUS.evaluate = evaluate
+newspaper_factory(comb_dto_LAIFU_PLUS)
+
+# 为你创金
+comb_dto_CREATE_MONEY.code = 'ZH037782'
+comb_dto_CREATE_MONEY.dict_id = comb_dto_CREATE_MONEY.code
+comb_dto_CREATE_MONEY.begin_date = '20190923'
+comb_dto_CREATE_MONEY.end_date = end_date
+comb_dto_CREATE_MONEY.stk_bench_mark_code = IndexWindCodeConstants.csi_800
+comb_dto_CREATE_MONEY.bench_equity_position = 1
+comb_dto_CREATE_MONEY.bench_bond_position = 1 - comb_dto_CREATE_MONEY.bench_equity_position
+comb_dto_CREATE_MONEY.evaluate = evaluate
+newspaper_factory(comb_dto_CREATE_MONEY)
+
+#  小确幸
+comb_dto_XIAOQUEXING.code = 'simulation'
+comb_dto_XIAOQUEXING.dict_id = comb_dto_XIAOQUEXING.code
+comb_dto_XIAOQUEXING.begin_date = '20190101'
+comb_dto_XIAOQUEXING.end_date = end_date
+comb_dto_XIAOQUEXING.excel_db = {comb_dto_XIAOQUEXING.USE_EXCEL: True,
+                                 comb_dto_XIAOQUEXING.EXCEL_PATH: io_constants.newspaper_input_path + '创金小确幸调仓.xlsx',
+                                 comb_dto_XIAOQUEXING.INDEX_CODE: IndexWindCodeConstants.ccy_11025,
+                                 comb_dto_XIAOQUEXING.BOND_INDEX_CODE: IndexWindCodeConstants.csi_11015}
+comb_dto_XIAOQUEXING.evaluate = evaluate
+newspaper_factory(comb_dto_XIAOQUEXING)
+
+# 旺财
+comb_dto_WANGCAI.code = 'ZH058937'
+comb_dto_WANGCAI.dict_id = comb_dto_WANGCAI.code
+comb_dto_WANGCAI.begin_date = '20210105'
+comb_dto_WANGCAI.end_date = end_date
+comb_dto_WANGCAI.bench_equity_position = 0.6
+comb_dto_WANGCAI.bench_bond_position = 1 - comb_dto_WANGCAI.bench_equity_position
+comb_dto_WANGCAI.evaluate = evaluate
+newspaper_factory(comb_dto_WANGCAI)
+
+# 稳稳的幸福
+comb_dto_XINGFU.code = 'ZH013136'
+comb_dto_XINGFU.dict_id = comb_dto_XINGFU.code
+comb_dto_XINGFU.begin_date = '20200316'
+comb_dto_XINGFU.end_date = end_date
+comb_dto_XINGFU.bench_equity_position = 0.1
+comb_dto_XINGFU.bench_bond_position = 1 - comb_dto_XINGFU.bench_equity_position
+comb_dto_XINGFU.evaluate = evaluate
+newspaper_factory(comb_dto_XINGFU)

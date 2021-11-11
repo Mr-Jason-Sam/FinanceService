@@ -49,7 +49,7 @@ class CalendarClient(BaseClient):
 
         origin_df = pd.DataFrame(data=js['body']['calendarInfoList'])
 
-        if origin_df is None:
+        if origin_df is None or origin_df.empty:
             return origin_df
 
         return list(origin_df[CalendarDtoConst.trade_date])
